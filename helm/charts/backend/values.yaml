@@ -1,0 +1,45 @@
+fullnameOverride: backend
+replicaCount: 2
+image:
+  repository: "839248985651.dkr.ecr.us-east-1.amazonaws.com/fictional-engine/backend"
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 8000
+ingress:
+  enabled: false
+database:
+  host: "fictional-engine-production.cutuucqqg0vy.us-east-1.rds.amazonaws.com"
+  port: "5432"
+  name: "inventory"
+externalSecret:
+  enabled: true
+  rdsSecretName: "arn:aws:secretsmanager:us-east-1:839248985651:secret:rds!db-a5197154-75ad-4d6a-a2ce-e9f46e207132-K2sAk3"
+clusterSecretStore:
+  enabled: true
+  aws:
+    region: us-east-1
+  serviceAccount:
+    name: external-secrets
+    namespace: external-secrets
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+serviceAccount:
+  annotations: {}
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,52 @@
+fullnameOverride: frontend
+replicaCount: 2
+image:
+  repository: "839248985651.dkr.ecr.us-east-1.amazonaws.com/fictional-engine/frontend"
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+backendServiceName: backend
+backendServicePort: 8000
+service:
+  type: ClusterIP
+  port: 80
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: fictional-engine
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:839248985651:certificate/3adb04e7-2903-45f0-abfc-64625fa4c5fd"
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-port: "8080"
+    alb.ingress.kubernetes.io/inbound-cidrs: "109.92.160.228/32"
+  hosts:
+    - host: fictional-engine.online
+      paths:
+        - path: /
+          pathType: Prefix
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
+serviceAccount:
+  annotations: {}
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+networkPolicy:
+  vpcCidr: "10.1.0.0/16"
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,154 @@
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:dimitrije-janic/fictional-engine.git
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+
+apps:
+  - name: backend
+    namespace: fictional-engine
+    path: helm/charts/backend
+    valueFiles:
+      - values.yaml
+
+  - name: frontend
+    namespace: fictional-engine
+    path: helm/charts/frontend
+    valueFiles:
+      - values.yaml
+
+  - name: cluster-config
+    namespace: kube-system
+    path: helm/charts/cluster-config
+    valueFiles:
+      - values.yaml
+
+  - name: argocd
+    namespace: argocd
+    chart: argo-cd
+    repoURL: https://argoproj.github.io/argo-helm
+    targetRevision: "9.*"
+    syncOptions:
+      - ServerSideApply=true
+    values: |
+      server:
+        service:
+          type: ClusterIP
+
+  - name: aws-load-balancer-controller
+    namespace: kube-system
+    chart: aws-load-balancer-controller
+    repoURL: https://aws.github.io/eks-charts
+    targetRevision: "3.*"
+    values: |
+      clusterName: fictional-engine-production
+      region: us-east-1
+      vpcId: "vpc-0f38c78dc0825657b"
+      serviceAccount:
+        create: true
+        name: aws-load-balancer-controller
+        annotations:
+          eks.amazonaws.com/role-arn: "arn:aws:iam::839248985651:role/fictional-engine-production-aws-lb-controller"
+
+  - name: external-secrets
+    namespace: external-secrets
+    chart: external-secrets
+    repoURL: https://charts.external-secrets.io
+    targetRevision: "2.*"
+    syncOptions:
+      - ServerSideApply=true
+    values: |
+      crds:
+        createClusterSecretStore: true
+      serviceAccount:
+        create: true
+        name: external-secrets
+        annotations:
+          eks.amazonaws.com/role-arn: "arn:aws:iam::839248985651:role/fictional-engine-production-external-secrets"
+
+  - name: cluster-autoscaler
+    namespace: kube-system
+    chart: cluster-autoscaler
+    repoURL: https://kubernetes.github.io/autoscaler
+    targetRevision: "9.*"
+    values: |
+      autoDiscovery:
+        clusterName: fictional-engine-production
+      awsRegion: us-east-1
+      rbac:
+        serviceAccount:
+          create: true
+          name: cluster-autoscaler
+          annotations:
+            eks.amazonaws.com/role-arn: "arn:aws:iam::839248985651:role/fictional-engine-production-cluster-autoscaler"
+
+
+  - name: external-dns
+    namespace: external-dns
+    chart: external-dns
+    repoURL: https://kubernetes-sigs.github.io/external-dns
+    targetRevision: "1.*"
+    values: |
+      provider:
+        name: aws
+      domainFilters:
+        - fictional-engine.online
+      policy: sync
+      txtOwnerId: fictional-engine-production
+      serviceAccount:
+        create: true
+        name: external-dns
+        annotations:
+          eks.amazonaws.com/role-arn: "arn:aws:iam::839248985651:role/fictional-engine-production-external-dns"
+
+  - name: metrics-server
+    namespace: kube-system
+    chart: metrics-server
+    repoURL: https://kubernetes-sigs.github.io/metrics-server
+    targetRevision: "3.*"
+
+  - name: loki
+    namespace: monitoring
+    chart: loki
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: "6.*"
+    valuesFile: values/loki.yaml
+
+  - name: alloy
+    namespace: monitoring
+    chart: alloy
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: "0.*"
+    valuesFile: values/alloy.yaml
+
+  - name: kube-prometheus-stack
+    namespace: monitoring
+    chart: kube-prometheus-stack
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: "82.*"
+    syncOptions:
+      - ServerSideApply=true
+    values: |
+      prometheus:
+        prometheusSpec:
+          retention: 15d
+          storageSpec:
+            volumeClaimTemplate:
+              spec:
+                storageClassName: gp3
+                accessModes: ["ReadWriteOnce"]
+                resources:
+                  requests:
+                    storage: 50Gi
+      grafana:
+        enabled: true
+        additionalDataSources:
+          - name: Loki
+            type: loki
+            url: http://loki.monitoring.svc.cluster.local:3100
+            access: proxy
+            isDefault: false
+      alertmanager:
+        enabled: true

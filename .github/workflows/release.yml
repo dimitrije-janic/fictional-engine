@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags: ['*']
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  retag:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Retag image with release version
+        env:
+          REPOSITORY: ${{ github.event.repository.name }}/${{ matrix.service }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          SHA_TAG="sha-$(echo "${{ github.sha }}" | cut -c1-7)"
+          MANIFEST=$(aws ecr batch-get-image \
+            --repository-name "$REPOSITORY" \
+            --image-ids imageTag="$SHA_TAG" \
+            --query 'images[].imageManifest' \
+            --output text)
+          aws ecr put-image \
+            --repository-name "$REPOSITORY" \
+            --image-tag "$RELEASE_TAG" \
+            --image-manifest "$MANIFEST"
+
+  deploy:
+    needs: retag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          sparse-checkout: helm/charts
+
+      - name: Update image tags
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          yq eval -i '.image.tag = strenv(VERSION)' helm/charts/backend/values.yaml
+          yq eval -i '.image.tag = strenv(VERSION)' helm/charts/frontend/values.yaml
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add helm/charts/backend/values.yaml helm/charts/frontend/values.yaml
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: release ${{ github.ref_name }} [skip ci]"
+          git push
