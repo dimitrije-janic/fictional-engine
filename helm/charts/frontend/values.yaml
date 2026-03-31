@@ -22,7 +22,7 @@ ingress:
     alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:839248985651:certificate/3adb04e7-2903-45f0-abfc-64625fa4c5fd"
     alb.ingress.kubernetes.io/healthcheck-path: /
     alb.ingress.kubernetes.io/healthcheck-port: "8080"
-    alb.ingress.kubernetes.io/inbound-cidrs: "109.92.160.228/32"
+    alb.ingress.kubernetes.io/inbound-cidrs: "178.222.168.58/32"
   hosts:
     - host: fictional-engine.online
       paths:

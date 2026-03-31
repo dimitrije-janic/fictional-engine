@@ -11,7 +11,7 @@ node_min_size      = 2
 node_max_size      = 5
 node_desired_size  = 2
 
-eks_public_access_cidrs = ["109.92.160.228/32"]
+eks_public_access_cidrs = ["178.222.168.58/32"]
 
 domain_name = "fictional-engine.online"
 
